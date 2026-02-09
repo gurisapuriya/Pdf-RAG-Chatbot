@@ -1,15 +1,17 @@
 import os
-from langchain_community.document_loaders import PyPDFLoader
+# from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 # from langchain_huggingface import HuggingFaceEmbeddings
-from langchain_community.embeddings import OllamaEmbeddings
+from langchain_ollama import OllamaEmbeddings
 from langchain_chroma import Chroma
+from langchain_community.document_loaders import UnstructuredPDFLoader
+from langchain_community.vectorstores.utils import filter_complex_metadata
 
 #loading our embedding model form huggingface
 embedding_model = OllamaEmbeddings(model = "nomic-embed-text")
 
 #chunking strategy used is text-splitting
-text_splitter = RecursiveCharacterTextSplitter(chunk_size= 1000, chunk_overlap = 200)
+text_splitter = RecursiveCharacterTextSplitter(chunk_size= 800, chunk_overlap = 200)
 
 #loading all the PDFs
 docs = []
@@ -17,15 +19,18 @@ data_dir = "/Users/HP/Pdf-RAG-Chatbot/data"
 for filename in os.listdir(data_dir):
     if filename.lower().endswith(".pdf"):
         pdf_path = os.path.join(data_dir, filename)
-        print(f"loading {filename}..")
-        loader = PyPDFLoader(pdf_path)
-        pages = loader.load()
-        chunks = text_splitter.split_documents(pages)
+        print(f"Loading {filename}...")
+        loader = UnstructuredPDFLoader(pdf_path, mode="elements")
+        elements = loader.load()  # Raw elements
+        chunks = text_splitter.split_documents(elements)
         docs.extend(chunks)
-        print(f" -> {len(pages)} pages  -> {len(chunks)} chunks")
+        print(f"   → {len(chunks)} chunks")
 
 if not docs:
     raise ValueError("No PDFs found in /data folder! Add some and then re-run.")
+
+#filter complex metadata
+docs = filter_complex_metadata(docs)
 
 #creating our vector DB
 print("creating vector DB")
